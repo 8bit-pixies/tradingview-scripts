@@ -1,0 +1,17 @@
+study(title="4EMA", shorttitle="4EMA", overlay = true )
+Length1 = input(10, minval=1)
+Length2 = input(20, minval=1)
+Length3 = input(50, minval=1)
+Length4 = input(200, minval=1)
+
+xPrice = close
+
+xEMA1 = ema(xPrice, Length1)
+xEMA2 = ema(xPrice, Length2)
+xEMA3 = ema(xPrice, Length3)
+xEMA4 = ema(xPrice, Length4)
+
+plot(xEMA1, color=blue, title="4EMA 10")
+plot(xEMA2, color=purple, title="4EMA 20")
+plot(xEMA3, color=orange, title="4EMA 50")
+plot(xEMA4, color=yellow, title="4EMA 200")

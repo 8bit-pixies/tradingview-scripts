@@ -1,0 +1,53 @@
+//@version=5
+indicator("36 EMA Channels (Multi Timeframe)", overlay = true)
+
+
+// EMA of interest
+length = input.int(36, minval=1, title='EMA')
+high_length = input.int(36, minval=1, title='Higher MA')
+deviations = input.float(0.5, minval=0.1, title='deviations')
+high_ema = ta.ema(high, length)
+low_ema = ta.ema(low, length)
+close_ema = ta.ema(close, length)
+close_hma = ta.sma(close, high_length)
+
+
+//Multi Timeframe
+multi_timeframe = input.timeframe(defval='60', title="Timeframe")
+
+high_ema_mtf = request.security(syminfo.tickerid, multi_timeframe, high_ema)
+low_ema_mtf = request.security(syminfo.tickerid, multi_timeframe, low_ema)
+close_ema_mtf = request.security(syminfo.tickerid, multi_timeframe, close_ema)
+close_mtf = request.security(syminfo.tickerid, multi_timeframe, close)
+close_hma_mtf = request.security(syminfo.tickerid, multi_timeframe, close_hma)
+midpoint_ema_mtf = (high_ema_mtf + low_ema_mtf)/2
+
+// https://www.goldennumber.net/what-is-phi/
+// Lower Reversion Zone Bands
+reversion_zone_high = ((high_ema_mtf - close_hma_mtf)) * math.phi * deviations + close_hma_mtf
+reversion_zone_high_smooth = ta.wma(reversion_zone_high, 8)
+reversion_zone_lower = (-(low_ema_mtf - close_hma_mtf)) * math.phi * deviations + close_hma_mtf
+reversion_zone_lower_smooth = ta.wma(reversion_zone_lower, 8)
+
+
+//====================================================================================================//
+
+// Median zone bands [plot]
+median_zone_top = plot(high_ema_mtf, color = color.blue, title = "Top median zone", display=display.none)
+median_zone_bottom = plot(low_ema_mtf, color = color.blue, title = "Bottom median zone", display=display.none)
+
+// Lower reversion zone bands [plot]
+plot(reversion_zone_high_smooth, color = color.yellow, title = "Lower sell zone")
+plot(reversion_zone_lower_smooth, color = color.teal, title = "Higher buy zone")
+
+// Cross over/under for the EMA lower and upper bounds
+plotshape((ta.crossover(reversion_zone_lower, low_ema_mtf) or ta.crossunder(reversion_zone_lower, low_ema_mtf)), "buy indicator", shape.labelup, location.belowbar, color.green, size=size.large)
+plotshape((ta.crossover(reversion_zone_lower, midpoint_ema_mtf) or ta.crossunder(reversion_zone_lower, midpoint_ema_mtf)), "buy indicator", shape.triangleup, location.belowbar, color.green, size=size.large)
+plotshape(ta.crossunder(reversion_zone_lower, high_ema_mtf) and (reversion_zone_lower > reversion_zone_high), "buy indicator", shape.xcross, location.belowbar, color.green, size=size.large)
+
+plotshape((ta.crossunder(reversion_zone_high, midpoint_ema_mtf) or ta.crossover(reversion_zone_high, midpoint_ema_mtf)), "sell indicator", shape.triangledown, location.abovebar, color.red, size=size.large)
+plotshape((ta.crossunder(reversion_zone_high, high_ema_mtf) or ta.crossover(reversion_zone_high, high_ema_mtf)), "sell indicator", shape.labeldown, location.abovebar, color.red, size=size.large)
+plotshape((ta.crossunder(reversion_zone_high, high_ema_mtf) or ta.crossover(reversion_zone_high, high_ema_mtf)), "sell indicator", shape.labeldown, location.abovebar, color.red, size=size.large)
+plotshape(ta.crossover(reversion_zone_high, low_ema_mtf) and (reversion_zone_high < reversion_zone_lower), "buy indicator", shape.xcross, location.belowbar, color.green, size=size.large)
+
+
