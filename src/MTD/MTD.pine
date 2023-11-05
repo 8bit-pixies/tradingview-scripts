@@ -1,53 +1,159 @@
 //@version=5
-indicator("36 EMA Channels (Multi Timeframe)", overlay = true)
+indicator("EMA Bands Leledc", overlay = true)
 
+bool overridesym = input(title='Override chart symbol?', defval=false)
+string pvsra_sym = input.symbol(title='Symbol', defval='BINANCE:BTCUSD.P')
+bool setcandlecolors = input(true, title='Set PVSRA candle colors?')
 
 // EMA of interest
-length = input.int(36, minval=1, title='EMA')
-high_length = input.int(36, minval=1, title='Higher MA')
-deviations = input.float(0.5, minval=0.1, title='deviations')
+length = input.int(34, minval=1, title='EMA')
+high_length = input.int(50, minval=1, title='Higher MA')
+deviations = input.float(0.4, minval=0.1, title='deviations')
 high_ema = ta.ema(high, length)
 low_ema = ta.ema(low, length)
 close_ema = ta.ema(close, length)
-close_hma = ta.sma(close, high_length)
+close_hma = ta.wma(close, high_length)
 
 
 //Multi Timeframe
 multi_timeframe = input.timeframe(defval='60', title="Timeframe")
 
+high_mtf = request.security(syminfo.tickerid, multi_timeframe, high)
+low_mtf = request.security(syminfo.tickerid, multi_timeframe, low)
+open_mtf = request.security(syminfo.tickerid, multi_timeframe, open)
+close_mtf = request.security(syminfo.tickerid, multi_timeframe, close)
+
 high_ema_mtf = request.security(syminfo.tickerid, multi_timeframe, high_ema)
 low_ema_mtf = request.security(syminfo.tickerid, multi_timeframe, low_ema)
 close_ema_mtf = request.security(syminfo.tickerid, multi_timeframe, close_ema)
-close_mtf = request.security(syminfo.tickerid, multi_timeframe, close)
-close_hma_mtf = request.security(syminfo.tickerid, multi_timeframe, close_hma)
-midpoint_ema_mtf = (high_ema_mtf + low_ema_mtf)/2
-
-// https://www.goldennumber.net/what-is-phi/
-// Lower Reversion Zone Bands
-reversion_zone_high = ((high_ema_mtf - close_hma_mtf)) * math.phi * deviations + close_hma_mtf
-reversion_zone_high_smooth = ta.wma(reversion_zone_high, 8)
-reversion_zone_lower = (-(low_ema_mtf - close_hma_mtf)) * math.phi * deviations + close_hma_mtf
-reversion_zone_lower_smooth = ta.wma(reversion_zone_lower, 8)
-
 
 //====================================================================================================//
+Lelec(bars, len) =>
+    bindex = int(na)
+    bindex := nz(bindex[1], 0)
+    sindex = int(na)
+    sindex := nz(sindex[1], 0)
+    return_1 = 0
+    bindex := close > close[4] ? bindex + 1 : bindex
+    sindex := close < close[4] ? sindex + 1 : sindex
+    if bindex > bars and close < open and high >= ta.highest(high, len)
+        bindex := 0
+        return_1 := -1
+    else
+        if sindex > bars and close > open and low <= ta.lowest(low, len)
+            sindex := 0
+            return_1 := 1
+    return_1
+
+exhaustion_indicator = Lelec(10, 40)  // 6, 30 is the other one
+plotshape(exhaustion_indicator == -1 ? high : na, style=shape.labeldown, location=location.abovebar, color=color.yellow, size=size.tiny)
+plotshape(exhaustion_indicator == 1 ? low : na, style=shape.labelup, location=location.belowbar, color=color.yellow, size=size.tiny)
 
 // Median zone bands [plot]
 median_zone_top = plot(high_ema_mtf, color = color.blue, title = "Top median zone", display=display.none)
 median_zone_bottom = plot(low_ema_mtf, color = color.blue, title = "Bottom median zone", display=display.none)
 
-// Lower reversion zone bands [plot]
-plot(reversion_zone_high_smooth, color = color.yellow, title = "Lower sell zone")
-plot(reversion_zone_lower_smooth, color = color.teal, title = "Higher buy zone")
+EMA = close_ema_mtf
 
-// Cross over/under for the EMA lower and upper bounds
-plotshape((ta.crossover(reversion_zone_lower, low_ema_mtf) or ta.crossunder(reversion_zone_lower, low_ema_mtf)), "buy indicator", shape.labelup, location.belowbar, color.green, size=size.large)
-plotshape((ta.crossover(reversion_zone_lower, midpoint_ema_mtf) or ta.crossunder(reversion_zone_lower, midpoint_ema_mtf)), "buy indicator", shape.triangleup, location.belowbar, color.green, size=size.large)
-plotshape(ta.crossunder(reversion_zone_lower, high_ema_mtf) and (reversion_zone_lower > reversion_zone_high), "buy indicator", shape.xcross, location.belowbar, color.green, size=size.large)
+middleBandTop = (high_ema_mtf - close_ema_mtf) * 1.0 + close_ema_mtf
+middleBandBot = (low_ema_mtf - close_ema_mtf) * 1.0 + close_ema_mtf
 
-plotshape((ta.crossunder(reversion_zone_high, midpoint_ema_mtf) or ta.crossover(reversion_zone_high, midpoint_ema_mtf)), "sell indicator", shape.triangledown, location.abovebar, color.red, size=size.large)
-plotshape((ta.crossunder(reversion_zone_high, high_ema_mtf) or ta.crossover(reversion_zone_high, high_ema_mtf)), "sell indicator", shape.labeldown, location.abovebar, color.red, size=size.large)
-plotshape((ta.crossunder(reversion_zone_high, high_ema_mtf) or ta.crossover(reversion_zone_high, high_ema_mtf)), "sell indicator", shape.labeldown, location.abovebar, color.red, size=size.large)
-plotshape(ta.crossover(reversion_zone_high, low_ema_mtf) and (reversion_zone_high < reversion_zone_lower), "buy indicator", shape.xcross, location.belowbar, color.green, size=size.large)
+shortbandsHigh = ((high_ema_mtf - EMA) * math.phi * 1.0) * math.pi + EMA
+shortbandsLow = (-(EMA - low_ema_mtf) * math.phi * 1.0) * math.pi + EMA
+shortbandsHighEMA = ta.wma(shortbandsHigh, 8)
+shortbandsLowEMA = ta.wma(shortbandsLow, 8)
+phiExtensionHigh = ((high_ema_mtf - EMA) * math.phi * 1) * (math.phi + 4) + EMA
+phiExtensionLow  = (-(EMA - low_ema_mtf) * math.phi * 1) * (math.phi + 4) + EMA
+phiExtensionHighEMA = ta.wma(phiExtensionHigh, 8)
+phiExtensionLowEMA = ta.wma(phiExtensionLow, 8)
+
+highP3 = plot(shortbandsHighEMA, color = color.new(color.yellow, 100), title = "Lower sell zone", display=display.none)
+lowP3 = plot(shortbandsLowEMA, color = color.new(color.teal, 100), title = "Higher buy zone", display=display.none)
+phiPlotHigh = plot(phiExtensionHighEMA, color = color.new(color.red, 100), title = "Top sell zone", display=display.none)
+phiPlotLow = plot(phiExtensionLowEMA, color = color.new(color.green, 100), title = "Bottom buy zone", display=display.none)
+
+highP1 = plot(middleBandTop, color = color.new(color.blue, 100), title = "Top median zone", display=display.none)
+lowP1 = plot(middleBandBot, color = color.new(color.blue, 100), title = "Bottom median zone", display=display.none)
+
+// fill(phiPlotHigh, highP3, color.new(color.red, 85), title = "Sell zone")
+// fill(lowP3, phiPlotLow, color.new(color.green, 85), title = "Buy zone")
+fill(highP1, lowP1, color.new(color.gray, 90), title = "Median zone")
+
+// indicator calculation
+crossUpTopMB = open_mtf < middleBandTop and close_mtf > middleBandTop
+crossDownBotMB = open_mtf > middleBandBot and close_mtf < middleBandBot
+wiggleUpTopMB = open_mtf > middleBandTop and close_mtf > middleBandTop and close_mtf[1] <= middleBandTop[1]
+wiggleDownBotMB = open_mtf < middleBandBot and close_mtf < middleBandBot and close_mtf[1] >= middleBandBot[1]
+
+// plotshape(crossUpTopMB or wiggleUpTopMB ,title="Bottom", color=color.green, location=location.belowbar, style=shape.triangleup, size=size.tiny)
+// plotshape(crossDownBotMB or wiggleDownBotMB, title="Top", color=color.red, location=location.abovebar, style=shape.triangledown, size=size.tiny)
+
+plotshape(crossUpTopMB, title="Bottom", color=color.green, location=location.belowbar, style=shape.triangleup, size=size.tiny)
+plotshape(crossDownBotMB, title="Top", color=color.red, location=location.abovebar, style=shape.triangledown, size=size.tiny)
 
 
+// 4 EMA
+xEMA1 = ta.ema(close, 10)
+xEMA2 = ta.ema(close, 20)
+xEMA3 = ta.ema(close, 50)
+xEMA4 = ta.ema(close, 200)
+
+plot(xEMA1, color=color.purple, title="4EMA 10")
+plot(xEMA2, color=color.maroon, title="4EMA 20")
+plot(xEMA3, color=color.orange, title="4EMA 50")
+plot(xEMA4, color=color.yellow, title="4EMA 200")
+
+// pvsra
+
+pvsra_security(sresolution, sseries) =>
+    request.security(overridesym ? pvsra_sym : syminfo.tickerid, sresolution, sseries[barstate.isrealtime ? 1 : 0], barmerge.gaps_off, barmerge.lookahead_off)
+pvsra_security_1 = pvsra_security('', volume)
+pvsra_volume = overridesym == true ? pvsra_security_1 : volume
+pvsra_security_2 = pvsra_security('', high)
+pvsra_high = overridesym == true ? pvsra_security_2 : high
+pvsra_security_3 = pvsra_security('', low)
+pvsra_low = overridesym == true ? pvsra_security_3 : low
+pvsra_security_4 = pvsra_security('', close)
+pvsra_close = overridesym == true ? pvsra_security_4 : close
+pvsra_security_5 = pvsra_security('', open)
+pvsra_open = overridesym == true ? pvsra_security_5 : open
+
+//label.new(overridesym ? 0 : na, low, text = "PVSRA Override: " + pvsra_sym, xloc = xloc.bar_index, yloc=yloc.belowbar,style=label.style_label_down, size=size.huge)
+
+// The below math matches MT4 PVSRA indicator source
+// average volume from last 10 candles
+sum_1 = math.sum(pvsra_volume, 10)
+sum_2 = math.sum(volume, 10)
+av = overridesym == true ? sum_1 / 10 : sum_2 / 10
+//climax volume on the previous candle
+value2 = overridesym == true ? pvsra_volume * (pvsra_high - pvsra_low) : volume * (high - low)
+// highest climax volume of the last 10 candles
+hivalue2 = ta.highest(value2, 10)
+// VA value determines the bar color. va = 0: normal. va = 1: climax.  va = 2: rising
+iff_1 = pvsra_volume >= av * 1.5 ? 2 : 0
+iff_2 = pvsra_volume >= av * 2 or value2 >= hivalue2 ? 1 : iff_1
+iff_3 = volume >= av * 1.5 ? 2 : 0
+iff_4 = volume >= av * 2 or value2 >= hivalue2 ? 1 : iff_3
+va = overridesym == true ? iff_2 : iff_4
+
+// Bullish or bearish coloring
+isBull = overridesym == true ? pvsra_close > pvsra_open : close > open
+
+CUColor = color.lime  // Climax up (bull) bull and bear both start with b so it would be weird hence up down
+CDColor = color.red  // Climax down (bear)
+
+AUColor = color.blue  //Avobe average up (bull)
+ADColor = color.fuchsia  //Above average down (bear))
+
+NUColor = #999999
+NDColor = #4d4d4d
+
+// candleColor = iff(climax,iff(isBull,CUColor,CDColor),iff(aboveA,iff(isBull,AUColor,ADColor),iff(isBull,NUColor,NDColor)))
+iff_5 = va == 2 ? AUColor : NUColor
+iff_6 = va == 1 ? CUColor : iff_5
+iff_7 = va == 2 ? ADColor : NDColor
+iff_8 = va == 1 ? CDColor : iff_7
+candleColor = isBull ? iff_6 : iff_8
+barcolor(setcandlecolors ? candleColor : na)
+
+//plot(pvsra_volume, style=plot.style_columns, linewidth=1, color=candleColor)
