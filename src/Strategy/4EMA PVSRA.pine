@@ -60,3 +60,10 @@ candleColor = isBull ? iff_6 : iff_8
 barcolor(candleColor)
 
 // x0 levels
+
+// awesome oscillator bearish/bullish cross
+fastLength = 5 //input(title="Fast Length", type=input.integer, defval=5)
+slowLength = 34 // input(title="Slow Length", type=input.integer, defval=34)
+ao = ta.sma(hl2, fastLength) - ta.sma(hl2, slowLength)
+plotshape(ao >= 0 and ao[1] < 0, title="AO Bullish Cross", color=color.orange, location=location.belowbar, style=shape.arrowup, size=size.normal, text="AO Bullish Cross")
+plotshape(ao <= 0 and ao[1] > 0, title="AO Bearish Cross", color=color.orange, location=location.abovebar, style=shape.arrowdown, size=size.normal, text="AO Bearish Cross")
