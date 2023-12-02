@@ -1,0 +1,203 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © danielx888
+// Credits to Joy_Bangla for the Leledc exhaustion bar code
+// Credits to VishvaP for the 34 EMA bands code
+// Credits to SlumdogTrader for the BB exhaustion code (edited for functionality)
+// Credits to Juanc2316 for his code for BB Keltner Squeeze
+//
+// Update Notes : added strategy close conditions before every entry for more accurate
+// backtesting results when considering for slippage and fees,  readability adjustments
+
+//@version=5
+//EMA bands + leledc + bollinger bands trend catching strategy w/ countertrend scalp
+strategy(title='TT', 
+     shorttitle='Trend Pooristics v2', overlay=true, initial_capital = 1000, commission_value= 0.036, 
+     pyramiding= 0, default_qty_type= strategy.percent_of_equity, default_qty_value= 100, 
+     margin_long=0, margin_short=0, max_bars_back=200)
+
+multi_timeframe = input.timeframe(defval='60', title="Timeframe")
+
+high_mtf = request.security(syminfo.tickerid, multi_timeframe, high)
+low_mtf = request.security(syminfo.tickerid, multi_timeframe, low)
+open_mtf = request.security(syminfo.tickerid, multi_timeframe, open)
+close_mtf = request.security(syminfo.tickerid, multi_timeframe, close)
+volume_mtf = request.security(syminfo.tickerid, multi_timeframe, volume)
+
+//USER INPUTS {
+//INPUT: OPEN
+i_EMAlength         = input.int   (36, 'EMA Length', minval=1, step=1)
+// s_needLong          = input.bool  (true, title = "Enable middle EMA band breakout: Long", group="Open Conditions")
+// i_topMBmult         = input.float (1, 'Top middle band multiplier', 0.1,3,step=0.1,group='Open Conditions')
+// i_botMBmult         = input.float (1, 'Bottom middle band multiplier',0.1,3,step=0.1,group='Open Conditions')
+
+s_needLong = true
+i_topMBmult = 1
+i_botMBmult = 1
+
+//INPUT: CLOSE
+// i_midClose          = input.string('Opposite band', 'Close on crosses through middle EMA bands', tooltip='Selecting "Delayed bars inside" will closing positions after specified amount of candles close in between the middle EMA bands without breaking out', options=['Nearest band', 'Opposite band'], group='Close Conditions')
+// s_whichBuySellBars  = input.string('Inner', 'Which Buy/Sell zone?', options=['Inner', 'Outer'], group='Close Conditions')
+i_midClose = 'Opposite band'
+s_whichBuySellBars = 'Inner'
+//INPUT: LELEDC
+i_leleVol           = input.bool  (false, 'Require Volume breakout for Leledc bars', group='Leledc Exhaustion Bar Settings')
+i_volMult           = input.float (1.5,'Volume Multiplier', 0.1,20,0.1, group='Leledc Exhaustion Bar Settings')
+i_majLen            = input.int   (30, 'Highest / Lowest', group='Leledc Exhaustion Bar Settings')
+i_majQual           = input.int   (6, 'Bar count no', group='Leledc Exhaustion Bar Settings')
+i_closeVal          = input.int   (4, 'Close', group='Leledc Exhaustion Bar Settings')
+i_bindexSindex      = input.int   (1, 'bindexSindex', group='Leledc Exhaustion Bar Settings')
+//INPUT: VISUAL ELEMENTS
+s_showMiddleBands   = input.bool  (false, 'Show middle EMA bands', group='Visual Elements') // need to keep this
+s_showMaj           = input.bool  (true, 'Show Leledc Exhausion Bars', group='Visual Elements')
+//}
+//VARIABLES: EMA and slowEMA CALC {
+EMA = ta.ema(close_mtf, i_EMAlength)
+//}
+
+//*****************************
+// © Joy_Bangla Leledc Exhaustion V4
+//====================================================================================================//{
+//min = input(false, 'Minor Leledc Exhaustion Bar ::  Show')
+//min_qual = input(5, 'Minor Leledc Exhausion Bar ::  Bar count no')
+//min_len = input(5, 'Minor Leledc Exhausion Bar ::  Bar count no')
+
+leleVol = volume_mtf > ta.sma(volume_mtf,100)*i_volMult
+
+lele(qual, len) =>
+    bindex = 0
+    sindex = 0
+    bindex := nz(bindex[i_bindexSindex], 0)
+    sindex := nz(sindex[i_bindexSindex], 0)
+    ret = 0
+    if close_mtf > close_mtf[i_closeVal]
+        bindex += 1
+        bindex
+    if close_mtf < close_mtf[i_closeVal]
+        sindex += 1
+        sindex
+    
+    if i_leleVol and not leleVol
+        ret := 0
+        ret
+    else
+        if bindex > qual and close_mtf < open_mtf and high_mtf >= ta.highest(high_mtf, len)
+            bindex := 0
+            ret := -1
+            ret
+        if sindex > qual and close_mtf > open_mtf and low_mtf <= ta.lowest(low_mtf, len)
+            sindex := 0
+            ret := 1
+            ret
+    return_1 = ret
+    return_1
+
+major = lele(i_majQual, i_majLen)
+//minor = lele(min_qual, min_len)
+
+plotchar(s_showMaj ? major == -1 ? high_mtf : na : na, char='•', location=location.absolute, color=color.yellow, size=size.small)
+plotchar(s_showMaj ? major == 1 ? low_mtf : na : na, char='•', location=location.absolute, color=color.yellow, size=size.small)
+
+//*****************************
+// © VishvaP 34 EMA Bands v2
+//====================================================================================================//{
+//BUILD EMA MIDDLE BANDS
+highShortEMA = ta.ema(high_mtf, i_EMAlength)
+lowShortEMA = ta.ema(low_mtf, i_EMAlength)
+middleBandTop = (highShortEMA - EMA) * i_topMBmult + EMA
+middleBandBot = (lowShortEMA - EMA) * i_botMBmult + EMA
+
+//==============================================//
+//1D Bands [Not Used]
+//bandsHigh = highShortEMA * math.phi
+//bandsLow = lowShortEMA * math.rphi
+
+//==============================================//
+//INNER BUY/SELL ZONES
+shortbandsHigh = ((highShortEMA - EMA) * math.phi * i_topMBmult) * math.pi + EMA
+shortbandsLow = (-(EMA - lowShortEMA) * math.phi * i_botMBmult) * math.pi + EMA
+//SMOOTH INNER
+shortbandsHighEMA = ta.wma(shortbandsHigh, 8)
+shortbandsLowEMA = ta.wma(shortbandsLow, 8)
+
+//==============================================//
+//OUTER BUY/SELL ZONES
+phiExtensionHigh = ((highShortEMA - EMA) * math.phi * i_topMBmult) * (math.phi + 4) + EMA
+phiExtensionLow  = (-(EMA - lowShortEMA) * math.phi * i_botMBmult) * (math.phi + 4) + EMA
+//SMOOTH OUTER
+phiExtensionHighEMA = ta.wma(phiExtensionHigh, 8)
+phiExtensionLowEMA = ta.wma(phiExtensionLow, 8)
+
+//==============================================//
+//====================================================================================================//
+//}
+
+//BUILD VARIABLES FOR CROSSES {
+crossUpTopMB = open_mtf < middleBandTop and close_mtf > middleBandTop
+wiggleUpTopMB = open_mtf > middleBandTop and close_mtf > middleBandTop and close_mtf[1] <= middleBandTop[1]
+crossDownTopMB = open_mtf > middleBandTop and close_mtf < middleBandTop
+wiggleDownTopMB = open_mtf < middleBandTop and close_mtf < middleBandTop and close_mtf[1] >= middleBandTop[1]
+
+crossUpBotMB = open_mtf < middleBandBot and close_mtf > middleBandBot
+wiggleUpBotMB = open_mtf > middleBandBot and close_mtf > middleBandBot and close_mtf[1] <= middleBandBot[1]
+crossDownBotMB = open_mtf > middleBandBot and close_mtf < middleBandBot
+wiggleDownBotMB = open_mtf < middleBandBot and close_mtf < middleBandBot and close_mtf[1] >= middleBandBot[1]
+
+crossUpBotInnerRB = open_mtf < shortbandsLowEMA and close_mtf > shortbandsLowEMA
+wiggleUpBotInnerRB = open_mtf > shortbandsLowEMA and close_mtf > shortbandsLowEMA and close_mtf[1] <= shortbandsLowEMA[1]
+crossUpBotOuterRB = open_mtf < phiExtensionLowEMA and close_mtf > phiExtensionLowEMA
+wiggleUpBotOuterRB = open_mtf > phiExtensionLowEMA and close_mtf > phiExtensionLowEMA and close_mtf[1] <= phiExtensionLowEMA[1]
+
+crossUpTopInnerRB = open_mtf < shortbandsHighEMA and close_mtf > shortbandsHighEMA
+wiggleUpTopInnerRB = open_mtf > shortbandsHighEMA and close_mtf > shortbandsHighEMA and close_mtf[1] <= shortbandsHighEMA[1]
+crossUpTopOuterRB = open_mtf < phiExtensionHighEMA and close_mtf > phiExtensionHighEMA
+wiggleUpTopOuterRB = open_mtf > phiExtensionHighEMA and close_mtf > phiExtensionHighEMA and close_mtf[1] <= phiExtensionHighEMA[1]
+
+crossDownBotInnerRB = open_mtf > shortbandsLowEMA and close_mtf < shortbandsLowEMA
+wiggleDownBotInnerRB = open_mtf < shortbandsLowEMA and close_mtf < shortbandsLowEMA and close_mtf[1] >= shortbandsLowEMA[1]
+crossDownBotOuterRB = open_mtf > phiExtensionLowEMA and close_mtf < phiExtensionLowEMA
+wiggleDownBotOuterRB = open_mtf < phiExtensionLowEMA and close_mtf < phiExtensionLowEMA and close_mtf[1] >= phiExtensionLowEMA[1]
+
+crossDownTopInnerRB = open_mtf > shortbandsHighEMA and close_mtf < shortbandsHighEMA
+wiggleDownTopInnerRB = open_mtf < shortbandsHighEMA and close_mtf < shortbandsHighEMA and close_mtf[1] >= shortbandsHighEMA[1]
+crossDownTopOuterRB = open_mtf > phiExtensionHighEMA and close_mtf < phiExtensionHighEMA
+wiggleDownTopOuterRB = open_mtf < phiExtensionHighEMA and close_mtf < phiExtensionHighEMA and close_mtf[1] >= phiExtensionHighEMA[1]
+//}
+
+//BASIC STRATEGY POSITIONS OPEN
+//LONGS OPEN {
+longMidBreak = crossUpTopMB or wiggleUpTopMB
+
+if s_needLong
+    if longMidBreak
+        strategy.entry('Long', strategy.long)
+//}
+
+//VARIABLES: CONDITIONS OF LOSS OF BUY/SELL ZONES {
+var bool crossUpRB = false
+var bool wiggleUpRB = false
+var bool crossDownRB = false
+var bool wiggleDownRB = false
+if s_whichBuySellBars == 'Inner'
+    crossUpRB    := crossUpBotInnerRB
+    wiggleUpRB   := wiggleUpBotInnerRB
+    crossDownRB  := crossDownTopInnerRB
+    wiggleDownRB := wiggleDownTopInnerRB
+else 
+    crossUpRB    := crossUpBotOuterRB
+    wiggleUpRB   := wiggleUpBotOuterRB
+    crossDownRB  := crossDownTopOuterRB
+    wiggleDownRB := wiggleDownTopOuterRB
+//}
+
+//BASIC STRATEGY POSITIONS CLOSE
+//LONGS CLOSE {
+if strategy.position_size > 0
+    if i_midClose == 'Nearest band'
+        if crossDownTopMB or wiggleDownTopMB
+            // plotshape(crossDownTopMB or wiggleDownTopMB, title="Top", color=color.red, location=location.abovebar, style=shape.triangledown, size=size.tiny)
+            strategy.close('Long', comment = 'Close Long')
+    if i_midClose == 'Opposite band'
+        if crossDownBotMB or wiggleDownBotMB
+            // plotshape(crossDownBotMB or wiggleDownBotMB, title="Top", color=color.red, location=location.abovebar, style=shape.triangledown, size=size.tiny)
+            strategy.close('Long', comment = 'Close Long')
+//}
