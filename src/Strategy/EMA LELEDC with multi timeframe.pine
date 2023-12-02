@@ -201,3 +201,71 @@ if strategy.position_size > 0
             // plotshape(crossDownBotMB or wiggleDownBotMB, title="Top", color=color.red, location=location.abovebar, style=shape.triangledown, size=size.tiny)
             strategy.close('Long', comment = 'Close Long')
 //}
+
+
+
+
+// 4 EMA
+xEMA1 = ta.ema(close, 10)
+xEMA2 = ta.ema(close, 20)
+xEMA3 = ta.ema(close, 50)
+xEMA4 = ta.ema(close, 200)
+
+plot(xEMA1, color=color.purple, title="4EMA 10")
+plot(xEMA2, color=color.maroon, title="4EMA 20")
+plot(xEMA3, color=color.orange, title="4EMA 50")
+plot(xEMA4, color=color.yellow, title="4EMA 200")
+
+// pvsra
+
+pvsra_security(sresolution, sseries) =>
+    request.security(syminfo.tickerid, sresolution, sseries[barstate.isrealtime ? 1 : 0], barmerge.gaps_off, barmerge.lookahead_off)
+pvsra_volume = volume
+pvsra_high = high
+pvsra_low = low
+pvsra_close = close
+pvsra_open = open
+
+//label.new(overridesym ? 0 : na, low, text = "PVSRA Override: " + pvsra_sym, xloc = xloc.bar_index, yloc=yloc.belowbar,style=label.style_label_down, size=size.huge)
+
+// The below math matches MT4 PVSRA indicator source
+// average volume from last 10 candles
+sum_2 = math.sum(volume, 10)
+av = sum_2 / 10
+//climax volume on the previous candle
+value2 = volume * (high - low)
+// highest climax volume of the last 10 candles
+hivalue2 = ta.highest(value2, 10)
+// VA value determines the bar color. va = 0: normal. va = 1: climax.  va = 2: rising
+iff_1 = pvsra_volume >= av * 1.5 ? 2 : 0
+iff_2 = pvsra_volume >= av * 2 or value2 >= hivalue2 ? 1 : iff_1
+iff_3 = volume >= av * 1.5 ? 2 : 0
+iff_4 = volume >= av * 2 or value2 >= hivalue2 ? 1 : iff_3
+va = iff_4
+
+// Bullish or bearish coloring
+isBull = close > open
+
+CUColor = color.lime  // Climax up (bull) bull and bear both start with b so it would be weird hence up down
+CDColor = color.red  // Climax down (bear)
+
+AUColor = color.blue  //Avobe average up (bull)
+ADColor = color.fuchsia  //Above average down (bear))
+
+NUColor = #999999
+NDColor = #4d4d4d
+
+// candleColor = iff(climax,iff(isBull,CUColor,CDColor),iff(aboveA,iff(isBull,AUColor,ADColor),iff(isBull,NUColor,NDColor)))
+iff_5 = va == 2 ? AUColor : NUColor
+iff_6 = va == 1 ? CUColor : iff_5
+iff_7 = va == 2 ? ADColor : NDColor
+iff_8 = va == 1 ? CDColor : iff_7
+candleColor = isBull ? iff_6 : iff_8
+barcolor(candleColor)
+
+// awesome oscillator bearish/bullish cross
+fastLength = 5 //input(title="Fast Length", type=input.integer, defval=5)
+slowLength = 34 // input(title="Slow Length", type=input.integer, defval=34)
+ao = ta.sma(hl2, fastLength) - ta.sma(hl2, slowLength)
+plotchar(ao >= 0 and ao[1] < 0, title="AO Bullish Cross", color=color.yellow, location=location.belowbar, size=size.tiny, char="∧")
+plotchar(ao <= 0 and ao[1] > 0, title="AO Bearish Cross", color=color.yellow, location=location.abovebar, size=size.tiny, char="∨")
