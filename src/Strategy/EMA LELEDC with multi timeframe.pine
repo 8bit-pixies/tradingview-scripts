@@ -94,8 +94,8 @@ lele(qual, len) =>
 major = lele(i_majQual, i_majLen)
 //minor = lele(min_qual, min_len)
 
-plotchar(s_showMaj ? major == -1 ? high_mtf : na : na, char='↑', location=location.belowbar, color=color.yellow, size=size.tiny)
-plotchar(s_showMaj ? major == 1 ? low_mtf : na : na, char='↓', location=location.abovebar, color=color.yellow, size=size.tiny)
+plotchar(s_showMaj ? major == -1 ? high_mtf : na : na, char='↓', location=location.abovebar, color=color.yellow, size=size.tiny)
+plotchar(s_showMaj ? major == 1 ? low_mtf : na : na, char='↑', location=location.belowbar, color=color.yellow, size=size.tiny)
 
 //*****************************
 // © VishvaP 34 EMA Bands v2
