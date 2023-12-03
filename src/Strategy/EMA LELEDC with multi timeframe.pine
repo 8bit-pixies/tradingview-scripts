@@ -15,7 +15,7 @@ strategy(title='TT',
      pyramiding= 0, default_qty_type= strategy.percent_of_equity, default_qty_value= 100, 
      margin_long=0, margin_short=0, max_bars_back=200)
 
-multi_timeframe = input.timeframe(defval='60', title="Timeframe")
+multi_timeframe = input.timeframe(defval='', title="Timeframe")
 
 high_mtf = request.security(syminfo.tickerid, multi_timeframe, high)
 low_mtf = request.security(syminfo.tickerid, multi_timeframe, low)
@@ -48,7 +48,7 @@ i_closeVal          = input.int   (4, 'Close', group='Leledc Exhaustion Bar Sett
 i_bindexSindex      = input.int   (1, 'bindexSindex', group='Leledc Exhaustion Bar Settings')
 //INPUT: VISUAL ELEMENTS
 s_showMiddleBands   = input.bool  (false, 'Show middle EMA bands', group='Visual Elements') // need to keep this
-s_showMaj           = input.bool  (true, 'Show Leledc Exhausion Bars', group='Visual Elements')
+s_showMaj           = input.bool  (false, 'Show Leledc Exhausion Bars', group='Visual Elements')
 //}
 //VARIABLES: EMA and slowEMA CALC {
 EMA = ta.ema(close_mtf, i_EMAlength)
