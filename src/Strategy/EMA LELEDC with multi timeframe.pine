@@ -48,7 +48,7 @@ i_closeVal          = input.int   (4, 'Close', group='Leledc Exhaustion Bar Sett
 i_bindexSindex      = input.int   (1, 'bindexSindex', group='Leledc Exhaustion Bar Settings')
 //INPUT: VISUAL ELEMENTS
 s_showMiddleBands   = input.bool  (false, 'Show middle EMA bands', group='Visual Elements') // need to keep this
-s_showMaj           = input.bool  (false, 'Show Leledc Exhausion Bars', group='Visual Elements')
+s_showMaj           = input.bool  (true, 'Show Leledc Exhausion Bars', group='Visual Elements')
 //}
 //VARIABLES: EMA and slowEMA CALC {
 EMA = ta.ema(close_mtf, i_EMAlength)
@@ -94,8 +94,8 @@ lele(qual, len) =>
 major = lele(i_majQual, i_majLen)
 //minor = lele(min_qual, min_len)
 
-plotchar(s_showMaj ? major == -1 ? high_mtf : na : na, char='•', location=location.absolute, color=color.yellow, size=size.small)
-plotchar(s_showMaj ? major == 1 ? low_mtf : na : na, char='•', location=location.absolute, color=color.yellow, size=size.small)
+plotchar(s_showMaj ? major == -1 ? high_mtf : na : na, char='↑', location=location.belowbar, color=color.yellow, size=size.tiny)
+plotchar(s_showMaj ? major == 1 ? low_mtf : na : na, char='↓', location=location.abovebar, color=color.yellow, size=size.tiny)
 
 //*****************************
 // © VishvaP 34 EMA Bands v2
